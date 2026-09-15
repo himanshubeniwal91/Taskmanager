@@ -1,299 +1,427 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import StatCard from "./components/dashboard/StatCard";
 import TaskTable from "./components/dashboard/TaskTable";
 
-import { useState, useMemo } from "react";
-
 import Navbar from "./components/layout/Navbar";
 import Sidebar from "./components/layout/Sidebar";
+
 import TaskForm from "./components/dashboard/TaskForm";
+import TaskDetails from "./components/dashboard/TaskDetails";
+import TaskEditForm from "./components/dashboard/TaskEditForm";
 
 import { useSelector, useDispatch } from "react-redux";
 
 import {
-  addTask,
-  updateTask,
-  deleteTask,
-
-  // SOLUTION:
+  fetchTasks,
   setPage,
   setLimit,
-
 } from "./components/store/taskSlice";
-
-import TaskDetails from "./components/dashboard/TaskDetails";
-import TaskEditForm from "./components/dashboard/TaskEditForm";
 
 
 export default function Home() {
 
+  // =====================================================
+  // REDUX
+  // =====================================================
+
   const dispatch = useDispatch();
 
 
-  // Get all tasks from Redux
+  // Get tasks from Redux
   const allTasks = useSelector(
     (state) => state.tasks.tasks
   );
 
 
-  // SOLUTION:
-  // Get pagination information from Redux
+  // Get pagination from Redux
   const pagination = useSelector(
     (state) => state.tasks.pagination
   );
 
 
+  // Get loading state
+  const loading = useSelector(
+    (state) => state.tasks.loading
+  );
+
+
+  // Get error state
+  const error = useSelector(
+    (state) => state.tasks.error
+  );
+
+
+  // =====================================================
+  // FILTER STATE
+  // =====================================================
+
   const [filters, setFilters] = useState({
+
     search: "",
+
     status: "All",
+
     priority: "All",
+
     sort: "",
+
   });
 
 
-  const [showTaskForm, setShowTaskForm] = useState(false);
+  // =====================================================
+  // UI STATE
+  // =====================================================
 
-  const [selectedTask, setSelectedTask] = useState(null);
-
-  const [editingTask, setEditingTask] = useState(null);
-
-
-  const totalTasks = allTasks.length;
+  const [showTaskForm, setShowTaskForm] =
+    useState(false);
 
 
-  const pendingTasks = allTasks.filter(
-    (task) => task.status === "Pending"
-  ).length;
+  const [selectedTask, setSelectedTask] =
+    useState(null);
 
 
-  const completedTasks = allTasks.filter(
-    (task) => task.status === "Completed"
-  ).length;
+  const [editingTask, setEditingTask] =
+    useState(null);
 
 
-  const overdueTasks = allTasks.filter(
-    (task) =>
-      new Date(task.dueDate) < new Date() &&
-      task.status !== "Completed"
-  ).length;
+  // =====================================================
+  // FETCH TASKS
+  // =====================================================
 
+  useEffect(() => {
 
-  /*
-  ==========================================
-  SEARCH + FILTER + SORT
-  ==========================================
-  */
+    dispatch(
 
-  const filteredTasks = useMemo(() => {
+      fetchTasks({
 
-    let result = [...allTasks];
+        page: pagination.page,
 
+        limit: pagination.limit,
 
-    if (filters.search) {
+        search: filters.search,
 
-      result = result.filter((task) =>
-        task.title
-          .toLowerCase()
-          .includes(filters.search.toLowerCase())
-      );
+        status: filters.status,
 
-    }
+        priority: filters.priority,
 
+        sort: filters.sort,
 
-    if (filters.status !== "All") {
+      })
 
-      result = result.filter(
-        (task) => task.status === filters.status
-      );
-
-    }
-
-
-    if (filters.priority !== "All") {
-
-      result = result.filter(
-        (task) => task.priority === filters.priority
-      );
-
-    }
-
-
-    if (filters.sort === "asc") {
-
-      result.sort(
-        (a, b) =>
-          new Date(a.dueDate) -
-          new Date(b.dueDate)
-      );
-
-    }
-
-
-    if (filters.sort === "desc") {
-
-      result.sort(
-        (a, b) =>
-          new Date(b.dueDate) -
-          new Date(a.dueDate)
-      );
-
-    }
-
-
-    return result;
+    );
 
   }, [
-    allTasks,
+
+    dispatch,
+
+    pagination.page,
+
+    pagination.limit,
+
     filters.search,
+
     filters.status,
+
     filters.priority,
+
     filters.sort,
+
   ]);
 
 
-  /*
-  ==========================================
-  FILTER CHANGE
-  ==========================================
-  */
+  // =====================================================
+  // DASHBOARD STATISTICS
+  // =====================================================
+
+  // SOLUTION:
+  // Total tasks comes from backend pagination.
+  //
+  // Example:
+  // MongoDB has 20 tasks
+  // Current page has only 5
+  //
+  // allTasks.length = 5
+  // pagination.totalTasks = 20
+  //
+  // Therefore use pagination.totalTasks.
+
+  const totalTasks =
+    pagination.totalTasks;
+
+
+  // IMPORTANT:
+  // These three currently count only the tasks
+  // returned on the current page.
+  //
+  // Later we will create a separate backend
+  // statistics API to calculate the real totals.
+
+  const pendingTasks =
+    allTasks.filter(
+      (task) => task.status === "Pending"
+    ).length;
+
+
+  const completedTasks =
+    allTasks.filter(
+      (task) => task.status === "Completed"
+    ).length;
+
+
+  const overdueTasks =
+    allTasks.filter(
+
+      (task) =>
+
+        new Date(task.dueDate) < new Date() &&
+
+        task.status !== "Completed"
+
+    ).length;
+
+
+  // =====================================================
+  // FILTER CHANGE
+  // =====================================================
 
   const handleFilterChange = ({
+
     search,
+
     status,
+
     priority,
+
     sort,
+
   }) => {
 
+    // Save filters locally
+
     setFilters({
+
       search,
+
       status,
+
       priority,
+
       sort,
+
     });
 
 
     // SOLUTION:
     // Whenever filter changes,
-    // start pagination from page 1.
+    // start from page 1.
+
     dispatch(setPage(1));
 
   };
 
 
-  /*
-  ==========================================
-  CREATE
-  ==========================================
-  */
+  // =====================================================
+  // PAGE CHANGE
+  // =====================================================
+
+  const handlePageChange = (page) => {
+
+    // Change page in Redux.
+    //
+    // This will trigger useEffect()
+    // and fetch data from backend.
+
+    dispatch(setPage(page));
+
+  };
+
+
+  // =====================================================
+  // LIMIT CHANGE
+  // =====================================================
+
+  const handleLimitChange = (limit) => {
+
+    // Convert select value from string to number.
+
+    dispatch(setLimit(Number(limit)));
+
+  };
+
+
+  // =====================================================
+  // VIEW TASK
+  // =====================================================
+
+  const handleViewTask = (task) => {
+
+    setSelectedTask(task);
+
+  };
+
+
+  // =====================================================
+  // EDIT TASK
+  // =====================================================
+
+  const handleEditTask = (task) => {
+
+    setEditingTask(task);
+
+  };
+
+
+  // =====================================================
+  // CREATE TASK
+  // =====================================================
 
   const handleCreateTask = (newTask) => {
 
-    dispatch(addTask(newTask));
+    /*
+      ====================================================
+      TEMPORARY
+      ====================================================
+
+      We have not connected POST /api/tasks to Redux yet.
+
+      Previously we had:
+
+      dispatch(addTask(newTask));
+
+      But addTask was part of our old local Redux setup.
+
+      Now we will connect this to:
+
+      POST /api/tasks
+
+      in the next step.
+
+    */
+
+    console.log(
+      "Create task - backend integration coming next:",
+      newTask
+    );
+
 
     setShowTaskForm(false);
 
+
+    // Refresh tasks after backend CRUD
+    // is connected.
   };
 
 
-  /*
-  ==========================================
-  VIEW
-  ==========================================
-  */
-
-  const handleViewTask = (task) => {
-    setSelectedTask(task);
-  };
-
-
-  /*
-  ==========================================
-  EDIT
-  ==========================================
-  */
-
-  const handleEditTask = (task) => {
-    setEditingTask(task);
-  };
-
-
-  /*
-  ==========================================
-  UPDATE
-  ==========================================
-  */
+  // =====================================================
+  // UPDATE TASK
+  // =====================================================
 
   const handleUpdateTask = (updatedTask) => {
 
-    dispatch(updateTask(updatedTask));
+    /*
+      ====================================================
+      TEMPORARY
+      ====================================================
+
+      We will connect this to:
+
+      PUT /api/tasks/:id
+
+      in the next step.
+    */
+
+    console.log(
+      "Update task - backend integration coming next:",
+      updatedTask
+    );
+
 
     setEditingTask(null);
 
   };
 
 
-  /*
-  ==========================================
-  DELETE
-  ==========================================
-  */
+  // =====================================================
+  // DELETE TASK
+  // =====================================================
 
   const handleDeleteTask = (taskId) => {
 
     const confirmed = window.confirm(
+
       "Are you sure you want to delete this task?"
+
     );
 
 
     if (!confirmed) {
+
       return;
+
     }
 
 
-    dispatch(deleteTask(taskId));
+    /*
+      ====================================================
+      TEMPORARY
+      ====================================================
+
+      We will connect this to:
+
+      DELETE /api/tasks/:id
+
+      in the next step.
+    */
+
+    console.log(
+      "Delete task - backend integration coming next:",
+      taskId
+    );
 
   };
 
 
-  /*
-  ==========================================
-  PAGINATION
-  ==========================================
-  */
+  // =====================================================
+  // DEBUG
+  // =====================================================
 
-  const handlePageChange = (page) => {
-
-    // SOLUTION:
-    // Tell Redux which page user selected
-    dispatch(setPage(page));
-
-  };
+  console.log(
+    "TASKS FROM REDUX:",
+    allTasks
+  );
 
 
-  /*
-  ==========================================
-  LIMIT CHANGE
-  ==========================================
-  */
+  console.log(
+    "PAGINATION:",
+    pagination
+  );
 
-  const handleLimitChange = (limit) => {
 
-    // SOLUTION:
-    // Change number of records per page
-    dispatch(setLimit(Number(limit)));
-
-  };
-console.log("PAGINATION:", pagination);
+  // =====================================================
+  // UI
+  // =====================================================
 
   return (
 
     <div className="flex min-h-screen bg-gray-100">
 
+
+      {/* =================================================
+          SIDEBAR
+          ================================================= */}
+
       <Sidebar />
 
 
       <div className="flex min-w-0 flex-1 flex-col">
+
+
+        {/* =================================================
+            NAVBAR
+            ================================================= */}
 
         <Navbar />
 
@@ -301,85 +429,187 @@ console.log("PAGINATION:", pagination);
         <main className="flex-1 p-6">
 
 
-          {/* Heading */}
+          {/* =================================================
+              HEADING
+              ================================================= */}
 
           <div className="mb-8">
 
             <h1 className="text-3xl font-bold text-gray-900">
+
               Dashboard
+
             </h1>
 
+
             <p className="mt-1 text-gray-500">
+
               Manage your tasks efficiently
+
             </p>
 
           </div>
 
 
-          {/* Statistics */}
+          {/* =================================================
+              ERROR
+              ================================================= */}
+
+          {error && (
+
+            <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-4 text-red-600">
+
+              Failed to load tasks: {error}
+
+            </div>
+
+          )}
+
+
+          {/* =================================================
+              STATISTICS
+              ================================================= */}
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
 
+
             <StatCard
+
               title="Total Tasks"
+
               value={totalTasks}
+
               description="All tasks"
+
             />
 
 
             <StatCard
+
               title="Pending Tasks"
+
               value={pendingTasks}
+
               description="Tasks waiting to start"
+
             />
 
 
             <StatCard
+
               title="Completed Tasks"
+
               value={completedTasks}
+
               description="Successfully completed"
+
             />
 
 
             <StatCard
+
               title="Overdue Tasks"
+
               value={overdueTasks}
+
               description="Need your attention"
+
             />
+
 
           </div>
 
 
-          {/* Tasks */}
+          {/* =================================================
+              TASK TABLE
+              ================================================= */}
 
           <div className="mt-8">
 
-            <TaskTable
-              tasks={filteredTasks}
 
-              onFilterChange={handleFilterChange}
+            {loading ? (
 
-              onCreateClick={() =>
-                setShowTaskForm(true)
-              }
+              <div className="rounded-lg bg-white p-8 text-center">
 
-              onViewTask={handleViewTask}
+                <p className="text-gray-500">
 
-              onEditTask={handleEditTask}
+                  Loading tasks...
 
-              onDeleteTask={handleDeleteTask}
+                </p>
+
+              </div>
+
+            ) : (
+
+              <TaskTable
+
+                // SOLUTION:
+                // Backend already handles:
+                // search
+                // filter
+                // sort
+                // pagination
+
+                tasks={allTasks}
 
 
-              // SOLUTION:
-              // Pass pagination information
-              pagination={pagination}
+                // Filter callback
 
-              // Pass pagination functions
-              onPageChange={handlePageChange}
+                onFilterChange={
+                  handleFilterChange
+                }
 
-              onLimitChange={handleLimitChange}
 
-            />
+                // Create
+
+                onCreateClick={() =>
+                  setShowTaskForm(true)
+                }
+
+
+                // View
+
+                onViewTask={
+                  handleViewTask
+                }
+
+
+                // Edit
+
+                onEditTask={
+                  handleEditTask
+                }
+
+
+                // Delete
+
+                onDeleteTask={
+                  handleDeleteTask
+                }
+
+
+                // =================================================
+                // PAGINATION
+                // =================================================
+
+                pagination={
+                  pagination
+                }
+
+
+                onPageChange={
+                  handlePageChange
+                }
+
+
+                onLimitChange={
+                  handleLimitChange
+                }
+
+              />
+
+            )}
+
 
           </div>
 
@@ -389,41 +619,70 @@ console.log("PAGINATION:", pagination);
       </div>
 
 
-      {/* CREATE TASK */}
+      {/* =================================================
+          CREATE TASK MODAL
+          ================================================= */}
 
       {showTaskForm && (
 
         <TaskForm
-          onClose={() => setShowTaskForm(false)}
-          onCreateTask={handleCreateTask}
+
+          onClose={() =>
+            setShowTaskForm(false)
+          }
+
+
+          onCreateTask={
+            handleCreateTask
+          }
+
         />
 
       )}
 
 
-      {/* VIEW TASK */}
+      {/* =================================================
+          VIEW TASK MODAL
+          ================================================= */}
 
       {selectedTask && (
 
         <TaskDetails
+
           task={selectedTask}
-          onClose={() => setSelectedTask(null)}
+
+          onClose={() =>
+            setSelectedTask(null)
+          }
+
         />
 
       )}
 
 
-      {/* EDIT TASK */}
+      {/* =================================================
+          EDIT TASK MODAL
+          ================================================= */}
 
       {editingTask && (
 
         <TaskEditForm
+
           task={editingTask}
-          onClose={() => setEditingTask(null)}
-          onUpdateTask={handleUpdateTask}
+
+          onClose={() =>
+            setEditingTask(null)
+          }
+
+
+          onUpdateTask={
+            handleUpdateTask
+          }
+
         />
 
       )}
+
 
     </div>
 
