@@ -37,6 +37,71 @@ export const fetchTasks = createAsyncThunk(
   }
 );
 
+// =====================================================
+// CREATE TASK
+// =====================================================
+
+export const createTask = createAsyncThunk(
+
+  "tasks/createTask",
+
+  async (taskData) => {
+
+    const response = await api.post(
+      "/tasks",
+      taskData
+    );
+
+
+    return response.data;
+
+  }
+
+);
+
+
+
+// =====================================================
+// UPDATE TASK
+// =====================================================
+
+export const updateTask = createAsyncThunk(
+
+  "tasks/updateTask",
+
+  async ({ id, taskData }) => {
+
+    const response = await api.put(
+      `/tasks/${id}`,
+      taskData
+    );
+
+    return response.data;
+
+  }
+
+);
+
+
+// =====================================================
+// DELETE TASK
+// =====================================================
+
+export const deleteTask = createAsyncThunk(
+
+  "tasks/deleteTask",
+
+  async (id) => {
+
+    const response = await api.delete(
+      `/tasks/${id}`
+    );
+
+    return response.data;
+
+  }
+
+);
 
 // =====================================================
 // INITIAL STATE
@@ -156,7 +221,57 @@ const taskSlice = createSlice({
         state.error =
           action.error.message;
 
-      });
+      })
+      // ===================================================
+// CREATE TASK
+// ===================================================
+
+.addCase(createTask.pending, (state) => {
+
+  state.loading = true;
+
+  state.error = null;
+
+})
+
+
+.addCase(createTask.fulfilled, (state, action) => {
+
+  state.loading = false;
+
+
+  // Backend returns:
+  //
+  // data: {
+  //   _id: "...",
+  //   title: "...",
+  //   ...
+  // }
+  //
+  // Convert MongoDB _id to our frontend id.
+
+  const task = action.payload.data;
+
+
+  state.tasks.unshift({
+
+    ...task,
+
+    id: task._id,
+
+  });
+
+})
+
+
+.addCase(createTask.rejected, (state, action) => {
+
+  state.loading = false;
+
+  state.error =
+    action.error.message;
+
+})
 
   },
 

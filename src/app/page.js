@@ -18,6 +18,9 @@ import {
   fetchTasks,
   setPage,
   setLimit,
+    createTask,
+     updateTask,
+  deleteTask,
 } from "./components/store/taskSlice";
 
 
@@ -278,110 +281,210 @@ export default function Home() {
   // CREATE TASK
   // =====================================================
 
-  const handleCreateTask = (newTask) => {
+ const handleCreateTask = async (newTask) => {
 
-    /*
-      ====================================================
-      TEMPORARY
-      ====================================================
+  try {
 
-      We have not connected POST /api/tasks to Redux yet.
-
-      Previously we had:
-
-      dispatch(addTask(newTask));
-
-      But addTask was part of our old local Redux setup.
-
-      Now we will connect this to:
-
-      POST /api/tasks
-
-      in the next step.
-
-    */
-
-    console.log(
-      "Create task - backend integration coming next:",
-      newTask
-    );
+    // Send task to backend
+    await dispatch(
+      createTask(newTask)
+    ).unwrap();
 
 
+    // Close modal
     setShowTaskForm(false);
 
 
-    // Refresh tasks after backend CRUD
-    // is connected.
-  };
+    // Refresh current page from MongoDB
+    dispatch(
 
+      fetchTasks({
+
+        page: pagination.page,
+
+        limit: pagination.limit,
+
+        search: filters.search,
+
+        status: filters.status,
+
+        priority: filters.priority,
+
+        sort: filters.sort,
+
+      })
+
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Create task failed:",
+      error
+    );
+
+  }
+
+};
 
   // =====================================================
   // UPDATE TASK
   // =====================================================
 
-  const handleUpdateTask = (updatedTask) => {
+  const handleUpdateTask = async (updatedTask) => {
 
-    /*
-      ====================================================
-      TEMPORARY
-      ====================================================
+  try {
 
-      We will connect this to:
+    // =================================================
+    // IMPORTANT
+    // =================================================
+    // MongoDB gives us _id.
+    //
+    // In our Redux fetchTasks() we also created:
+    //
+    // id: task._id
+    //
+    // So task.id can be used for the API URL.
 
-      PUT /api/tasks/:id
+    await dispatch(
 
-      in the next step.
-    */
+      updateTask({
 
-    console.log(
-      "Update task - backend integration coming next:",
-      updatedTask
-    );
+        id: updatedTask.id,
 
+        taskData: {
+
+          title: updatedTask.title,
+
+          description: updatedTask.description,
+
+          priority: updatedTask.priority,
+
+          status: updatedTask.status,
+
+          dueDate: updatedTask.dueDate,
+
+        },
+
+      })
+
+    ).unwrap();
+
+
+    // Close edit modal
 
     setEditingTask(null);
 
-  };
 
+    // =================================================
+    // REFRESH DATA FROM MONGODB
+    // =================================================
 
-  // =====================================================
-  // DELETE TASK
-  // =====================================================
+    dispatch(
 
-  const handleDeleteTask = (taskId) => {
+      fetchTasks({
 
-    const confirmed = window.confirm(
+        page: pagination.page,
 
-      "Are you sure you want to delete this task?"
+        limit: pagination.limit,
+
+        search: filters.search,
+
+        status: filters.status,
+
+        priority: filters.priority,
+
+        sort: filters.sort,
+
+      })
 
     );
 
 
-    if (!confirmed) {
+  } catch (error) {
 
-      return;
-
-    }
-
-
-    /*
-      ====================================================
-      TEMPORARY
-      ====================================================
-
-      We will connect this to:
-
-      DELETE /api/tasks/:id
-
-      in the next step.
-    */
-
-    console.log(
-      "Delete task - backend integration coming next:",
-      taskId
+    console.error(
+      "Update task failed:",
+      error
     );
 
-  };
+  }
+
+};
+
+
+const handleDeleteTask = async (taskId) => {
+
+  // =================================================
+  // CONFIRM DELETE
+  // =================================================
+
+  const confirmed = window.confirm(
+
+    "Are you sure you want to delete this task?"
+
+  );
+
+
+  if (!confirmed) {
+
+    return;
+
+  }
+
+
+  try {
+
+    // =================================================
+    // DELETE FROM MONGODB
+    // =================================================
+
+    await dispatch(
+
+      deleteTask(taskId)
+
+    ).unwrap();
+
+
+    // =================================================
+    // REFRESH CURRENT PAGE
+    // =================================================
+
+    dispatch(
+
+      fetchTasks({
+
+        page: pagination.page,
+
+        limit: pagination.limit,
+
+        search: filters.search,
+
+        status: filters.status,
+
+        priority: filters.priority,
+
+        sort: filters.sort,
+
+      })
+
+    );
+
+
+  } catch (error) {
+
+    console.error(
+
+      "Delete task failed:",
+
+      error
+
+    );
+
+  }
+
+};
 
 
   // =====================================================
