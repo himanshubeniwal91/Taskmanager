@@ -7,11 +7,13 @@ const {
   createTask,
   updateTask,
   deleteTask,
+   getTaskStats,
 } = require("../controllers/taskController");
 
 
 const router = express.Router();
 
+router.get("/stats", getTaskStats);
 
 // GET ALL TASKS
 // GET /api/tasks?page=1&limit=5

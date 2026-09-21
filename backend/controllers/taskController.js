@@ -407,6 +407,47 @@ const deleteTask = async (req, res) => {
 };
 
 
+// SOLUTION: Get dashboard statistics directly from MongoDB
+const getTaskStats = async (req, res) => {
+  try {
+    // SOLUTION: Count all tasks in the database
+    const totalTasks = await Task.countDocuments();
+
+    // SOLUTION: Count pending tasks
+    const pendingTasks = await Task.countDocuments({
+      status: "Pending",
+    });
+
+    // SOLUTION: Count completed tasks
+    const completedTasks = await Task.countDocuments({
+      status: "Completed",
+    });
+
+    // SOLUTION: Overdue = due date is before today/current time
+    // and task is not completed
+    const overdueTasks = await Task.countDocuments({
+      dueDate: { $lt: new Date() },
+      status: { $ne: "Completed" },
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalTasks,
+        pendingTasks,
+        completedTasks,
+        overdueTasks,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch task statistics",
+      error: error.message,
+    });
+  }
+};
+
 // =====================================================
 // EXPORT ALL FUNCTIONS
 // =====================================================
@@ -422,5 +463,6 @@ module.exports = {
   updateTask,
 
   deleteTask,
+    getTaskStats,
 
 };

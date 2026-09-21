@@ -16,11 +16,12 @@ import { useSelector, useDispatch } from "react-redux";
 
 import {
   fetchTasks,
+  fetchTaskStats, // SOLUTION
+  createTask,
+  updateTask,
+  deleteTask,
   setPage,
   setLimit,
-    createTask,
-     updateTask,
-  deleteTask,
 } from "./components/store/taskSlice";
 
 
@@ -37,7 +38,8 @@ export default function Home() {
   const allTasks = useSelector(
     (state) => state.tasks.tasks
   );
-
+// SOLUTION: Get dashboard statistics from Redux
+const stats = useSelector((state) => state.tasks.stats);
 
   // Get pagination from Redux
   const pagination = useSelector(
@@ -134,7 +136,10 @@ export default function Home() {
 
   ]);
 
-
+// SOLUTION: Fetch dashboard statistics when page loads
+useEffect(() => {
+  dispatch(fetchTaskStats());
+}, [dispatch]);
   // =====================================================
   // DASHBOARD STATISTICS
   // =====================================================
@@ -577,48 +582,28 @@ const handleDeleteTask = async (taskId) => {
 
 
             <StatCard
+  title="Total Tasks"
+  value={stats.totalTasks}
+    description="All tasks in the system"
+/>
 
-              title="Total Tasks"
+<StatCard
+  title="Pending Tasks"
+  value={stats.pendingTasks}
+    description="Tasks waiting to be completed"
+/>
 
-              value={totalTasks}
+<StatCard
+  title="Completed Tasks"
+  value={stats.completedTasks}
+   description="Successfully completed tasks"
+/>
 
-              description="All tasks"
-
-            />
-
-
-            <StatCard
-
-              title="Pending Tasks"
-
-              value={pendingTasks}
-
-              description="Tasks waiting to start"
-
-            />
-
-
-            <StatCard
-
-              title="Completed Tasks"
-
-              value={completedTasks}
-
-              description="Successfully completed"
-
-            />
-
-
-            <StatCard
-
-              title="Overdue Tasks"
-
-              value={overdueTasks}
-
-              description="Need your attention"
-
-            />
-
+<StatCard
+  title="Overdue Tasks"
+  value={stats.overdueTasks}
+    description="Tasks past their due date"
+/>
 
           </div>
 
