@@ -2,8 +2,31 @@
 
 import { useState } from "react";
 
+
+import { useRouter } from "next/navigation";
+
+import { useDispatch, useSelector } from "react-redux";
+
+import { logout } from "../store/authSlice";
+
 export default function Navbar() {
   const [showProfile, setShowProfile] = useState(false);
+const router = useRouter();
+
+const dispatch = useDispatch();
+
+const { user } = useSelector(
+  (state) => state.auth
+);
+const handleLogout = () => {
+
+  // Clear Redux + localStorage
+  dispatch(logout());
+
+  // Go to login page
+  router.push("/login");
+};
+
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
@@ -41,7 +64,11 @@ export default function Navbar() {
 
             <div className="hidden text-left sm:block">
               <p className="text-sm font-semibold text-gray-900">
-                Himanshu
+              {user && (
+  <span>
+    Welcome, {user.name}
+  </span>
+)}
               </p>
 
               <p className="text-xs text-gray-500">
@@ -63,6 +90,15 @@ export default function Navbar() {
             </div>
           )}
         </div>
+
+
+
+<button
+  onClick={handleLogout}
+  className="px-4 py-2 bg-red-500 text-white rounded"
+>
+  Logout
+</button>
 
       </div>
     </header>

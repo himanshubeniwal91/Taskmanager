@@ -10,39 +10,40 @@ const {
    getTaskStats,
 } = require("../controllers/taskController");
 
+const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-router.get("/stats", getTaskStats);
+router.get("/stats", authMiddleware, getTaskStats);
 
 // GET ALL TASKS
 // GET /api/tasks?page=1&limit=5
 
-router.get("/", getTasks);
+router.get("/", authMiddleware, getTasks);
 
 
 // GET SINGLE TASK
 // GET /api/tasks/:id
 
-router.get("/:id", getTaskById);
+router.get("/:id", authMiddleware, getTaskById);
 
 
 // CREATE TASK
 // POST /api/tasks
 
-router.post("/", createTask);
+router.post("/", authMiddleware, createTask);
 
 
 // UPDATE TASK
 // PUT /api/tasks/:id
 
-router.put("/:id", updateTask);
+router.put("/:id", authMiddleware, updateTask);
 
 
 // DELETE TASK
 // DELETE /api/tasks/:id
 
-router.delete("/:id", deleteTask);
+router.delete("/:id", authMiddleware, deleteTask);
 
 
 module.exports = router;

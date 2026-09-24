@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import StatCard from "./components/dashboard/StatCard";
 import TaskTable from "./components/dashboard/TaskTable";
-
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Navbar from "./components/layout/Navbar";
 import Sidebar from "./components/layout/Sidebar";
 
@@ -320,7 +320,16 @@ useEffect(() => {
       })
 
     );
+ // ✅ NEW: Refresh dashboard statistics
+    // This will update:
+    // Total Tasks
+    // Pending Tasks
+    // Completed Tasks
+    // Overdue Tasks
 
+    dispatch(
+      fetchTaskStats()
+    );
 
   } catch (error) {
 
@@ -405,7 +414,9 @@ useEffect(() => {
       })
 
     );
-
+ dispatch(
+      fetchTaskStats()
+    );
 
   } catch (error) {
 
@@ -475,7 +486,9 @@ const handleDeleteTask = async (taskId) => {
       })
 
     );
-
+ dispatch(
+      fetchTaskStats()
+    );
 
   } catch (error) {
 
@@ -513,6 +526,7 @@ const handleDeleteTask = async (taskId) => {
   // =====================================================
 
   return (
+  <ProtectedRoute>
 
     <div className="flex min-h-screen bg-gray-100">
 
@@ -773,7 +787,9 @@ const handleDeleteTask = async (taskId) => {
 
 
     </div>
-
+ </ProtectedRoute>
   );
+   
+
 
 }

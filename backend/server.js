@@ -41,10 +41,17 @@ app.use(express.json());
 // ROUTES
 // =====================================================
 
+// Task routes
 const taskRoutes = require("./routes/taskRoutes");
 
-// Task API routes
+// Auth routes
+const authRoutes = require("./routes/authRoutes");
+
+// Task API
 app.use("/api/tasks", taskRoutes);
+
+// Auth API
+app.use("/api/auth", authRoutes);
 
 // =====================================================
 // HOME ROUTE
@@ -61,13 +68,8 @@ app.get("/", (req, res) => {
 // CENTRALIZED ERROR HANDLER
 // =====================================================
 
-// SOLUTION:
-// This middleware must be placed AFTER all routes.
-//
-// If any route/controller sends an error using:
-// next(error)
-//
-// then this middleware will handle that error.
+// This must be AFTER all routes.
+// Errors passed using next(error) will come here.
 
 const errorMiddleware = require("./middleware/errorMiddleware");
 

@@ -1,518 +1,521 @@
-// =====================================================
-// IMPORTS
-// =====================================================
-
 const mongoose = require("mongoose");
 const Task = require("../models/Task");
-const asyncHandler = require("../middleware/asyncHandler");
 
 // =====================================================
 // GET ALL TASKS
-// GET /api/tasks?page=1&limit=5
 // =====================================================
 
-const getTasks = asyncHandler(async (req, res) => {
-  // =================================================
-  // PAGINATION
-  // =================================================
+const getTasks = async (req, res) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 5;
 
-  const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 5;
+    const skip = (page - 1) * limit;
 
-  // Calculate records to skip
-  const skip = (page - 1) * limit;
+    const {
+      search,
+      status,
+      priority,
+      sort,
+    } = req.query;
 
-  // =================================================
-  // QUERY PARAMETERS
-  // =================================================
+    // ===================================================
+    // FILTER
+    // ===================================================
 
-  const {
-    search,
-    status,
-    priority,
-    sort,
-  } = req.query;
-
-  // =================================================
-  // BUILD FILTER
-  // =================================================
-
-  const filter = {};
-
-  // =================================================
-  // SEARCH BY TITLE
-  // =================================================
-
-  if (search) {
-    filter.title = {
-      $regex: search,
-      $options: "i",
+    const filter = {
+      // SOLUTION:
+      // Only fetch tasks belonging to logged-in user.
+      user: req.user.userId,
     };
-  }
 
-  // =================================================
-  // STATUS FILTER
-  // =================================================
+    // Search by title
+    if (search) {
+      filter.title = {
+        $regex: search,
+        $options: "i",
+      };
+    }
 
-  if (status && status !== "All") {
-    filter.status = status;
-  }
+    // Status filter
+    if (status && status !== "All") {
+      filter.status = status;
+    }
 
-  // =================================================
-  // PRIORITY FILTER
-  // =================================================
+    // Priority filter
+    if (priority && priority !== "All") {
+      filter.priority = priority;
+    }
 
-  if (priority && priority !== "All") {
-    filter.priority = priority;
-  }
+    // ===================================================
+    // SORT
+    // ===================================================
 
-  // =================================================
-  // SORT
-  // =================================================
-
-  // Default:
-  // Latest created task first
-  let sortOption = {
-    createdAt: -1,
-  };
-
-  // Due date ascending
-  if (sort === "asc") {
-    sortOption = {
-      dueDate: 1,
+    let sortOption = {
+      createdAt: -1,
     };
+
+    if (sort === "asc") {
+      sortOption = {
+        dueDate: 1,
+      };
+    }
+
+    if (sort === "desc") {
+      sortOption = {
+        dueDate: -1,
+      };
+    }
+
+    // ===================================================
+    // TOTAL TASKS
+    // ===================================================
+
+    const totalTasks = await Task.countDocuments(filter);
+
+    // ===================================================
+    // FETCH TASKS
+    // ===================================================
+
+    const tasks = await Task.find(filter)
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limit);
+
+    // ===================================================
+    // TOTAL PAGES
+    // ===================================================
+
+    const totalPages = Math.ceil(
+      totalTasks / limit
+    );
+
+    // ===================================================
+    // RESPONSE
+    // ===================================================
+
+    res.status(200).json({
+      success: true,
+
+      data: tasks,
+
+      pagination: {
+        page,
+        limit,
+        totalTasks,
+        totalPages,
+      },
+
+      filters: {
+        search: search || "",
+        status: status || "All",
+        priority: priority || "All",
+        sort: sort || "",
+      },
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch tasks",
+      error: error.message,
+    });
   }
-
-  // Due date descending
-  if (sort === "desc") {
-    sortOption = {
-      dueDate: -1,
-    };
-  }
-
-  // =================================================
-  // COUNT FILTERED TASKS
-  // =================================================
-
-  const totalTasks = await Task.countDocuments(filter);
-
-  // =================================================
-  // FETCH TASKS
-  // =================================================
-
-  const tasks = await Task.find(filter)
-    .sort(sortOption)
-    .skip(skip)
-    .limit(limit);
-
-  // =================================================
-  // TOTAL PAGES
-  // =================================================
-
-  const totalPages = Math.ceil(
-    totalTasks / limit
-  );
-
-  // =================================================
-  // RESPONSE
-  // =================================================
-
-  res.status(200).json({
-    success: true,
-
-    data: tasks,
-
-    pagination: {
-      page,
-      limit,
-      totalTasks,
-      totalPages,
-    },
-
-    filters: {
-      search: search || "",
-      status: status || "All",
-      priority: priority || "All",
-      sort: sort || "",
-    },
-  });
-});
+};
 
 // =====================================================
 // GET SINGLE TASK
-// GET /api/tasks/:id
 // =====================================================
 
-const getTaskById = asyncHandler(async (req, res) => {
-  // =================================================
-  // VALIDATE OBJECT ID
-  // =================================================
+const getTaskById = async (req, res) => {
+  try {
 
-  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    return res.status(400).json({
+    // Validate MongoDB ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid task ID",
+      });
+    }
+
+    const task = await Task.findOne({
+      _id: req.params.id,
+
+      // SOLUTION:
+      // User can only access their own task.
+      user: req.user.userId,
+    });
+
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: task,
+    });
+
+  } catch (error) {
+    res.status(500).json({
       success: false,
-      message: "Invalid task ID",
+      message: "Failed to fetch task",
+      error: error.message,
     });
   }
-
-  // =================================================
-  // FIND TASK
-  // =================================================
-
-  const task = await Task.findById(req.params.id);
-
-  // =================================================
-  // TASK NOT FOUND
-  // =================================================
-
-  if (!task) {
-    return res.status(404).json({
-      success: false,
-      message: "Task not found",
-    });
-  }
-
-  // =================================================
-  // SUCCESS RESPONSE
-  // =================================================
-
-  res.status(200).json({
-    success: true,
-    data: task,
-  });
-});
+};
 
 // =====================================================
 // CREATE TASK
-// POST /api/tasks
 // =====================================================
 
-const createTask = asyncHandler(async (req, res) => {
-  const {
-    title,
-    description,
-    priority,
-    status,
-    dueDate,
-  } = req.body;
+const createTask = async (req, res) => {
+  try {
 
-  // =================================================
-  // REQUIRED FIELD VALIDATION
-  // =================================================
+    const {
+      title,
+      description,
+      priority,
+      status,
+      dueDate,
+    } = req.body;
 
-  if (
-    !title ||
-    !description ||
-    !dueDate
-  ) {
-    return res.status(400).json({
+    // ===================================================
+    // REQUIRED FIELD VALIDATION
+    // ===================================================
+
+    if (!title || !description || !dueDate) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Title, description and due date are required",
+      });
+    }
+
+    // ===================================================
+    // PRIORITY VALIDATION
+    // ===================================================
+
+    const validPriorities = [
+      "High",
+      "Medium",
+      "Low",
+    ];
+
+    if (
+      priority &&
+      !validPriorities.includes(priority)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Priority must be High, Medium or Low",
+      });
+    }
+
+    // ===================================================
+    // STATUS VALIDATION
+    // ===================================================
+
+    const validStatuses = [
+      "Pending",
+      "In Progress",
+      "Completed",
+    ];
+
+    if (
+      status &&
+      !validStatuses.includes(status)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Status must be Pending, In Progress or Completed",
+      });
+    }
+
+    // ===================================================
+    // CREATE TASK
+    // ===================================================
+
+    const task = await Task.create({
+
+      title: title.trim(),
+
+      description: description.trim(),
+
+      priority: priority || "Medium",
+
+      status: status || "Pending",
+
+      dueDate,
+
+      // SOLUTION:
+      // Attach task to currently logged-in user.
+      user: req.user.userId,
+    });
+
+    // ===================================================
+    // RESPONSE
+    // ===================================================
+
+    res.status(201).json({
+      success: true,
+      message: "Task created successfully",
+      data: task,
+    });
+
+  } catch (error) {
+    res.status(500).json({
       success: false,
-      message:
-        "Title, description and due date are required",
+      message: "Failed to create task",
+      error: error.message,
     });
   }
-
-  // =================================================
-  // PRIORITY VALIDATION
-  // =================================================
-
-  const validPriorities = [
-    "High",
-    "Medium",
-    "Low",
-  ];
-
-  if (
-    priority &&
-    !validPriorities.includes(priority)
-  ) {
-    return res.status(400).json({
-      success: false,
-      message:
-        "Priority must be High, Medium or Low",
-    });
-  }
-
-  // =================================================
-  // STATUS VALIDATION
-  // =================================================
-
-  const validStatuses = [
-    "Pending",
-    "In Progress",
-    "Completed",
-  ];
-
-  if (
-    status &&
-    !validStatuses.includes(status)
-  ) {
-    return res.status(400).json({
-      success: false,
-      message:
-        "Status must be Pending, In Progress or Completed",
-    });
-  }
-
-  // =================================================
-  // CREATE TASK
-  // =================================================
-
-  const task = await Task.create({
-    title: title.trim(),
-    description: description.trim(),
-    priority: priority || "Medium",
-    status: status || "Pending",
-    dueDate,
-  });
-
-  // =================================================
-  // SUCCESS RESPONSE
-  // =================================================
-
-  res.status(201).json({
-    success: true,
-    message: "Task created successfully",
-    data: task,
-  });
-});
+};
 
 // =====================================================
 // UPDATE TASK
-// PUT /api/tasks/:id
 // =====================================================
 
-const updateTask = asyncHandler(async (req, res) => {
-  // =================================================
-  // VALIDATE OBJECT ID
-  // =================================================
+const updateTask = async (req, res) => {
+  try {
 
-  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid task ID",
-    });
-  }
-
-  const {
-    title,
-    description,
-    priority,
-    status,
-    dueDate,
-  } = req.body;
-
-  // =================================================
-  // REQUIRED FIELD VALIDATION
-  // =================================================
-
-  if (
-    !title ||
-    !description ||
-    !dueDate
-  ) {
-    return res.status(400).json({
-      success: false,
-      message:
-        "Title, description and due date are required",
-    });
-  }
-
-  // =================================================
-  // PRIORITY VALIDATION
-  // =================================================
-
-  const validPriorities = [
-    "High",
-    "Medium",
-    "Low",
-  ];
-
-  if (
-    priority &&
-    !validPriorities.includes(priority)
-  ) {
-    return res.status(400).json({
-      success: false,
-      message:
-        "Priority must be High, Medium or Low",
-    });
-  }
-
-  // =================================================
-  // STATUS VALIDATION
-  // =================================================
-
-  const validStatuses = [
-    "Pending",
-    "In Progress",
-    "Completed",
-  ];
-
-  if (
-    status &&
-    !validStatuses.includes(status)
-  ) {
-    return res.status(400).json({
-      success: false,
-      message:
-        "Status must be Pending, In Progress or Completed",
-    });
-  }
-
-  // =================================================
-  // UPDATE TASK
-  // =================================================
-
-  const task = await Task.findByIdAndUpdate(
-    req.params.id,
-
-    {
-      title: title.trim(),
-      description: description.trim(),
-      priority: priority || "Medium",
-      status: status || "Pending",
-      dueDate,
-    },
-
-    {
-      new: true,
-      runValidators: true,
+    // Validate MongoDB ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid task ID",
+      });
     }
-  );
 
-  // =================================================
-  // TASK NOT FOUND
-  // =================================================
+    const {
+      title,
+      description,
+      priority,
+      status,
+      dueDate,
+    } = req.body;
 
-  if (!task) {
-    return res.status(404).json({
+    // ===================================================
+    // REQUIRED FIELD VALIDATION
+    // ===================================================
+
+    if (!title || !description || !dueDate) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Title, description and due date are required",
+      });
+    }
+
+    // ===================================================
+    // PRIORITY VALIDATION
+    // ===================================================
+
+    const validPriorities = [
+      "High",
+      "Medium",
+      "Low",
+    ];
+
+    if (
+      priority &&
+      !validPriorities.includes(priority)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Priority must be High, Medium or Low",
+      });
+    }
+
+    // ===================================================
+    // STATUS VALIDATION
+    // ===================================================
+
+    const validStatuses = [
+      "Pending",
+      "In Progress",
+      "Completed",
+    ];
+
+    if (
+      status &&
+      !validStatuses.includes(status)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Status must be Pending, In Progress or Completed",
+      });
+    }
+
+    // ===================================================
+    // UPDATE TASK
+    // ===================================================
+
+    const task = await Task.findOneAndUpdate(
+
+      {
+        _id: req.params.id,
+
+        // SOLUTION:
+        // Only update task belonging to logged-in user.
+        user: req.user.userId,
+      },
+
+      {
+        title: title.trim(),
+        description: description.trim(),
+        priority,
+        status,
+        dueDate,
+      },
+
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found",
+      });
+    }
+
+    // ===================================================
+    // RESPONSE
+    // ===================================================
+
+    res.status(200).json({
+      success: true,
+      message: "Task updated successfully",
+      data: task,
+    });
+
+  } catch (error) {
+    res.status(500).json({
       success: false,
-      message: "Task not found",
+      message: "Failed to update task",
+      error: error.message,
     });
   }
-
-  // =================================================
-  // SUCCESS RESPONSE
-  // =================================================
-
-  res.status(200).json({
-    success: true,
-    message: "Task updated successfully",
-    data: task,
-  });
-});
+};
 
 // =====================================================
 // DELETE TASK
-// DELETE /api/tasks/:id
 // =====================================================
 
-const deleteTask = asyncHandler(async (req, res) => {
-  // =================================================
-  // VALIDATE OBJECT ID
-  // =================================================
+const deleteTask = async (req, res) => {
+  try {
 
-  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-    return res.status(400).json({
+    // Validate MongoDB ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid task ID",
+      });
+    }
+
+    const task = await Task.findOneAndDelete({
+      _id: req.params.id,
+
+      // SOLUTION:
+      // Only delete task belonging to logged-in user.
+      user: req.user.userId,
+    });
+
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Task deleted successfully",
+      data: task,
+    });
+
+  } catch (error) {
+    res.status(500).json({
       success: false,
-      message: "Invalid task ID",
+      message: "Failed to delete task",
+      error: error.message,
     });
   }
-
-  // =================================================
-  // DELETE TASK
-  // =================================================
-
-  const task = await Task.findByIdAndDelete(
-    req.params.id
-  );
-
-  // =================================================
-  // TASK NOT FOUND
-  // =================================================
-
-  if (!task) {
-    return res.status(404).json({
-      success: false,
-      message: "Task not found",
-    });
-  }
-
-  // =================================================
-  // SUCCESS RESPONSE
-  // =================================================
-
-  res.status(200).json({
-    success: true,
-    message: "Task deleted successfully",
-    data: task,
-  });
-});
+};
 
 // =====================================================
 // GET TASK STATISTICS
-// GET /api/tasks/stats
 // =====================================================
 
-const getTaskStats = asyncHandler(async (req, res) => {
-  // =================================================
-  // TOTAL TASKS
-  // =================================================
+const getTaskStats = async (req, res) => {
+  try {
 
-  const totalTasks =
-    await Task.countDocuments();
+    // SOLUTION:
+    // Statistics are now only for logged-in user.
 
-  // =================================================
-  // PENDING TASKS
-  // =================================================
+    const userId = req.user.userId;
 
-  const pendingTasks =
-    await Task.countDocuments({
+    const totalTasks = await Task.countDocuments({
+      user: userId,
+    });
+
+    const pendingTasks = await Task.countDocuments({
+      user: userId,
       status: "Pending",
     });
 
-  // =================================================
-  // COMPLETED TASKS
-  // =================================================
-
-  const completedTasks =
-    await Task.countDocuments({
+    const completedTasks = await Task.countDocuments({
+      user: userId,
       status: "Completed",
     });
 
-  // =================================================
-  // OVERDUE TASKS
-  // =================================================
+    const overdueTasks = await Task.countDocuments({
+      user: userId,
 
-  // Overdue means:
-  // due date is before current date/time
-  // AND task is not completed
+      dueDate: {
+        $lt: new Date(),
+      },
 
-  const overdueTasks =
-    await Task.countDocuments({
-      dueDate: { $lt: new Date() },
-      status: { $ne: "Completed" },
+      status: {
+        $ne: "Completed",
+      },
     });
 
-  // =================================================
-  // SUCCESS RESPONSE
-  // =================================================
+    // ===================================================
+    // RESPONSE
+    // ===================================================
 
-  res.status(200).json({
-    success: true,
+    res.status(200).json({
+      success: true,
 
-    data: {
-      totalTasks,
-      pendingTasks,
-      completedTasks,
-      overdueTasks,
-    },
-  });
-});
+      data: {
+        totalTasks,
+        pendingTasks,
+        completedTasks,
+        overdueTasks,
+      },
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch task statistics",
+      error: error.message,
+    });
+  }
+};
 
 // =====================================================
-// EXPORT ALL FUNCTIONS
+// EXPORT
 // =====================================================
 
 module.exports = {
